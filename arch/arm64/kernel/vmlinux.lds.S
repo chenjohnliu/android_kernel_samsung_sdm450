@@ -121,8 +121,6 @@ SECTIONS
 		EXIT_CALL
 		*(.discard)
 		*(.discard.*)
-		*(.interp .dynamic)
-		*(.dynsym .dynstr .hash)
 	}
 
 	. = KIMAGE_VADDR + TEXT_OFFSET;
@@ -193,12 +191,25 @@ SECTIONS
 	.altinstr_replacement : {
 		KEEP(*(.altinstr_replacement))
 	}
-	.rela : ALIGN(8) {
+#ifdef CONFIG_RELOCATABLE
+	.rela.dyn : ALIGN(8) {
 		*(.rela .rela*)
 	}
-
-	__rela_offset	= ABSOLUTE(ADDR(.rela) - KIMAGE_VADDR);
-	__rela_size	= SIZEOF(.rela);
+	.dynamic : {
+		*(.dynamic)
+	}
+	.dynsym : ALIGN(8) {
+		*(.dynsym)
+	}
+	.dynstr : {
+		*(.dynstr)
+	}
+	.hash : {
+		*(.hash)
+	}
+	__rela_offset	= ABSOLUTE(ADDR(.rela.dyn) - KIMAGE_VADDR);
+	__rela_size	= SIZEOF(.rela.dyn);
+#endif
 
 	. = ALIGN(SEGMENT_ALIGN);
 	__init_end = .;
@@ -206,6 +217,11 @@ SECTIONS
 	_data = .;
 	_sdata = .;
 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
+
+	/* Keep Qualcomm SELinux RTIC state writable and page-aligned. */
+	.bss_rtic : ALIGN(PAGE_SIZE) {
+		*(.bss_rtic)
+	}
 
 	/*
 	 * Data written with the MMU off but read with the MMU on requires
@@ -252,6 +268,13 @@ SECTIONS
 
 	HEAD_SYMBOLS
 }
+
+#ifdef CONFIG_RELOCATABLE
+VERSION {
+	/* mark all symbols as local so they are not listed in .dynsym */
+	{ local: *; };
+}
+#endif
 
 /*
  * The HYP init code and ID map text can't be longer than a page each,
