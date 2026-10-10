@@ -507,12 +507,17 @@ else
 endif
 
 # If the list of objects to link is empty, just create an empty built-in.o
+# Empty subdirectory archives do not provide an ELF machine type to ld.lld.
+# Use the kernel's empty object to select the target when there are no local
+# objects to infer it from.
+empty-link-obj = $(if $(CONFIG_THIN_ARCHIVES),,$(if $(strip $(real-objs-y)),,$(if $(strip $(obj-y)),$(objtree)/scripts/mod/empty.o)))
+
 cmd_link_o_target = $(if $(strip $(obj-y)),\
-		      $(cmd_make_builtin) $@ $(filter $(obj-y), $^) \
+		      $(cmd_make_builtin) $@ $(filter $(obj-y), $^) $(empty-link-obj) \
 		      $(cmd_secanalysis),\
 		      $(cmd_make_empty_builtin) $@)
 
-$(builtin-target): $(obj-y) FORCE
+$(builtin-target): $(obj-y) $(empty-link-obj) FORCE
 	$(call if_changed,link_o_target)
 
 targets += $(builtin-target)
